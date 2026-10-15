@@ -337,7 +337,7 @@ export function defaultFilamentFor(bundle, key) {
     key === 'PLA-SILK' ? /silk/i.test(name) && typeOf(f) === 'PLA' : typeOf(f) === key && !/silk/i.test(name));
   const pick = (re) => matches.find(([n]) => re.test(n))?.[0];
   return pick(/^Generic /) || pick(/^QIDI .*(Basic|Rapido)/) || pick(/^QIDI /) || matches[0]?.[0] ||
-    (key === 'PLA-SILK' ? defaultFilamentFor(bundle, 'PLA') : bundle.defaults.filament);
+    (key !== 'PLA' ? defaultFilamentFor(bundle, 'PLA') : bundle.defaults.filament);
 }
 
 export function chooseFilament(bundle, options, source) {
