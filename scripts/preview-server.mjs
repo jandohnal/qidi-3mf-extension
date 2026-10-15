@@ -18,7 +18,10 @@ const STUB = `<script>
     set: async (obj) => Object.assign(store[name], obj),
   });
   window.chrome = {
-    runtime: { getURL: (p) => '/' + p },
+    runtime: {
+      getURL: (p) => '/' + p,
+      sendMessage: async (m) => { if (m.type === 'save') { const a = document.createElement('a'); a.href = m.url; a.download = m.filename; a.click(); } return { id: 1 }; },
+    },
     storage: { sync: area('sync'), local: area('local') },
     downloads: { download: async (o) => { console.log('download', o.filename); const a = document.createElement('a'); a.href = o.url; a.download = o.filename; a.click(); return 1; } },
   };

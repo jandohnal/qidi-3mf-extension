@@ -13,11 +13,25 @@ const SOURCE_HOSTS = [
   /(^|\.)prusa3d\.com$/,
 ];
 
-// Downloads started by this extension must not be intercepted again.
-const ownDownloads = new Set();
+// Downloads started by this extension, by URL: they must not be intercepted
+// again, and need their file name re-suggested here. This listener also runs
+// for them, and an empty suggest() would make Chrome name a blob: download
+// after the blob's UUID.
+const ownDownloads = new Map();
+
+function save(url, filename) {
+  ownDownloads.set(url, filename);
+  return chrome.downloads.download({ url, filename, conflictAction: 'uniquify' });
+}
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  if (ownDownloads.has(item.id) || item.byExtensionId === chrome.runtime.id || !is3mf(item) || !fromSourceSite(item)) {
+  const own = ownDownloads.get(item.url);
+  if (own !== undefined) {
+    ownDownloads.delete(item.url);
+    suggest({ filename: own, conflictAction: 'uniquify' });
+    return;
+  }
+  if (item.byExtensionId === chrome.runtime.id || !is3mf(item) || !fromSourceSite(item)) {
     suggest();
     return;
   }
@@ -31,6 +45,13 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
     suggest();
     handle(item, settings);
   });
+  return true;
+});
+
+// The popup saves its manual conversions through here for the same reason.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== 'save') return false;
+  save(msg.url, msg.filename).then((id) => sendResponse({ id }), (e) => sendResponse({ error: String(e?.message || e) }));
   return true;
 });
 
@@ -65,8 +86,7 @@ async function handle(item, settings) {
     if (res?.error) throw new Error(res.error);
     const { blobUrl, report } = res;
     const filename = report.changed ? outputName(name, settings.suffix) : name;
-    const id = await chrome.downloads.download({ url: blobUrl, filename, conflictAction: 'uniquify' });
-    ownDownloads.add(id);
+    await save(blobUrl, filename);
     await addHistory({ name, filename, report });
     notify(report.changed ? `Převedeno: ${filename}` : `Beze změny: ${filename}`, summary(report));
   } catch (e) {
@@ -74,10 +94,7 @@ async function handle(item, settings) {
     await addHistory({ name, error: String(e?.message || e) });
     notify('Převod se nepovedl', `${name}: ${e?.message || e}. Stahuji původní soubor.`);
     // Fall back to the original download so nothing is lost.
-    if (!url.startsWith('blob:')) {
-      const id = await chrome.downloads.download({ url, filename: name, conflictAction: 'uniquify' });
-      ownDownloads.add(id);
-    }
+    if (!url.startsWith('blob:')) await save(url, name);
   }
 }
 

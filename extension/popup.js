@@ -89,7 +89,8 @@ async function convertFiles(files) {
       const filename = report.changed ? outputName(file.name, settings.suffix) : file.name;
       if (report.changed) {
         const url = URL.createObjectURL(new Blob([bytes], { type: 'model/3mf' }));
-        await chrome.downloads.download({ url, filename, conflictAction: 'uniquify' });
+        const res = await chrome.runtime.sendMessage({ type: 'save', url, filename });
+        if (res?.error) throw new Error(res.error);
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       }
       box.replaceWith(renderReport(file.name, filename, report));
