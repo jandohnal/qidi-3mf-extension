@@ -1,5 +1,6 @@
-import { convert3mf, defaultFilamentFor } from './lib/convert.js';
-import { MATERIALS, addHistory, loadBundle, loadSettings, outputName, saveSettings } from './lib/settings.js';
+import { defaultFilamentFor } from './lib/convert.js';
+import { MATERIALS, loadBundle, loadSettings, saveSettings } from './lib/settings.js';
+import { putUpload } from './lib/uploads.js';
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -76,55 +77,22 @@ drop.addEventListener('drop', (e) => {
   convertFiles([...e.dataTransfer.files].filter((f) => /\.3mf$/i.test(f.name)));
 });
 
+// Each file opens the save dialog, which shows the changes and saves.
 async function convertFiles(files) {
   const result = $('result');
   result.hidden = false;
-  result.replaceChildren();
-  for (const file of files) {
-    const box = el('div', { className: 'report' }, el('h3', { textContent: `${file.name} – převádím…` }));
-    result.append(box);
-    await new Promise((r) => setTimeout(r, 0));
-    try {
-      const { bytes, report } = convert3mf(new Uint8Array(await file.arrayBuffer()), bundle, settings);
-      const filename = report.changed ? outputName(file.name, settings.suffix) : file.name;
-      if (report.changed) {
-        const url = URL.createObjectURL(new Blob([bytes], { type: 'model/3mf' }));
-        const res = await chrome.runtime.sendMessage({ type: 'save', url, filename });
-        if (res?.error) throw new Error(res.error);
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      }
-      box.replaceWith(renderReport(file.name, filename, report));
-      await addHistory({ name: file.name, filename, report });
-    } catch (e) {
-      box.replaceWith(renderError(file.name, e));
-      await addHistory({ name: file.name, error: String(e?.message || e) });
+  result.replaceChildren(el('p', { textContent: `Převádím ${files.length === 1 ? files[0].name : `${files.length} soubory`}…` }));
+  try {
+    for (const file of files) {
+      const key = crypto.randomUUID();
+      await putUpload(key, file);
+      const res = await chrome.runtime.sendMessage({ type: 'convert-upload', key, name: file.name });
+      if (res?.error) throw new Error(res.error);
     }
+    window.close();
+  } catch (e) {
+    result.replaceChildren(el('p', { className: 'err', textContent: `Chyba: ${e?.message || e}` }));
   }
-  renderHistory();
-}
-
-function renderReport(name, filename, report) {
-  const title = report.changed ? `✓ ${filename}` : `${name} – beze změny`;
-  return el(
-    'div',
-    { className: 'report' },
-    el('h3', { className: report.changed ? 'ok' : '', textContent: title }),
-    el(
-      'ul',
-      {},
-      ...report.warnings.map((w) => el('li', { className: 'warn', textContent: w })),
-      ...report.notes.map((n) => el('li', { textContent: n })),
-    ),
-  );
-}
-
-function renderError(name, e) {
-  return el(
-    'div',
-    { className: 'report' },
-    el('h3', { className: 'err', textContent: `✗ ${name}` }),
-    el('p', { textContent: String(e?.message || e) }),
-  );
 }
 
 // --- history ---------------------------------------------------------------
@@ -139,7 +107,9 @@ async function renderHistory() {
   }
   for (const h of history) {
     const when = new Date(h.time).toLocaleString('cs-CZ', { dateStyle: 'short', timeStyle: 'short' });
-    const status = h.error ? `chyba: ${h.error}` : h.report?.changed ? `→ ${h.filename}` : 'beze změny';
+    const status = h.error
+      ? `chyba: ${h.error}`
+      : h.action === 'cancel' ? 'neuloženo' : h.report?.changed ? `→ ${h.filename}` : 'beze změny';
     const warnings = h.report?.warnings?.length ? ` · ⚠ ${h.report.warnings.length}` : '';
     list.append(
       el(

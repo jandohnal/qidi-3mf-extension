@@ -1,7 +1,7 @@
-// Intercepts 3MF downloads from MakerWorld and Printables and saves a copy
-// converted for the QIDI printer instead. The conversion itself runs in an
-// offscreen document, which (unlike the service worker) can hand the result to
-// chrome.downloads as a blob: URL.
+// Intercepts 3MF downloads from MakerWorld and Printables, converts them for
+// the QIDI printer and asks in a dialog window what to save: the original, the
+// converted file or both. The conversion runs in an offscreen document, which
+// (unlike the service worker) can hand files to chrome.downloads as blob: URLs.
 
 import { addHistory, loadSettings, outputName } from './lib/settings.js';
 
@@ -48,11 +48,24 @@ chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
   return true;
 });
 
-// The popup saves its manual conversions through here for the same reason.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg?.type !== 'save') return false;
-  save(msg.url, msg.filename).then((id) => sendResponse({ id }), (e) => sendResponse({ error: String(e?.message || e) }));
-  return true;
+  const reply = (p) => p.then((r) => sendResponse(r ?? {}), (e) => sendResponse({ error: String(e?.message || e) }));
+  if (msg?.type === 'job-action') {
+    reply(finishJob(msg.id, msg.action));
+    return true;
+  }
+  if (msg?.type === 'convert-upload') {
+    // Manual conversion from the popup; the file waits in IndexedDB.
+    reply(loadSettings().then((settings) => startJob({ name: msg.name, source: { uploadKey: msg.key }, settings, manual: true })));
+    return true;
+  }
+  return false;
+});
+
+// Closing the dialog window without choosing saves nothing.
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  const job = await findJob((j) => j.windowId === windowId);
+  if (job) await finishJob(job.id, 'cancel');
 });
 
 function is3mf(item) {
@@ -81,21 +94,79 @@ async function handle(item, settings) {
   const name = (item.filename || '').split(/[\\/]/).pop() || fileNameFromUrl(url);
   try {
     const source = url.startsWith('blob:') ? { base64: await fetchBlobFromPage(url) } : { url };
-    await ensureOffscreen();
-    const res = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'convert', ...source, settings });
-    if (res?.error) throw new Error(res.error);
-    const { blobUrl, report } = res;
-    const filename = report.changed ? outputName(name, settings.suffix) : name;
-    await save(blobUrl, filename);
-    await addHistory({ name, filename, report });
-    notify(report.changed ? `Převedeno: ${filename}` : `Beze změny: ${filename}`, summary(report));
+    await startJob({ name, source, settings, manual: false });
   } catch (e) {
-    console.error('3MF conversion failed', e);
+    console.error('3MF download failed', e);
     await addHistory({ name, error: String(e?.message || e) });
-    notify('Převod se nepovedl', `${name}: ${e?.message || e}. Stahuji původní soubor.`);
+    notify('Soubor se nepodařilo zpracovat', `${name}: ${e?.message || e}. Stahuji původní soubor.`);
     // Fall back to the original download so nothing is lost.
     if (!url.startsWith('blob:')) await save(url, name);
   }
+}
+
+// Converts the file and opens the dialog asking what to save.
+async function startJob({ name, source, settings, manual }) {
+  await ensureOffscreen();
+  const res = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'convert', ...source, settings });
+  if (!res) throw new Error('převod neodpověděl');
+  const { originalUrl, convertedUrl, report, error } = res;
+  if (error || !report.changed) {
+    // Nothing to choose: save the original as it was downloaded.
+    if (!manual && originalUrl) await save(originalUrl, name);
+    revokeLater([originalUrl, convertedUrl]);
+    await addHistory(error ? { name, error } : { name, filename: name, report });
+    notify(error ? 'Převod se nepovedl' : `Beze změny: ${name}`,
+      error ? `${name}: ${error}${manual ? '' : '. Uložen původní soubor.'}` : report.notes.join('\n'));
+    return { done: true };
+  }
+  const id = crypto.randomUUID();
+  const job = { id, name, convertedName: outputName(name, settings.suffix), manual, originalUrl, convertedUrl, report };
+  await chrome.storage.session.set({ [`job:${id}`]: job });
+  const win = await chrome.windows.create({
+    url: chrome.runtime.getURL(`dialog.html?job=${id}`),
+    type: 'popup',
+    width: 820,
+    height: 900,
+    focused: true,
+  });
+  await chrome.storage.session.set({ [`job:${id}`]: { ...job, windowId: win.id } });
+  return { id };
+}
+
+async function finishJob(id, action) {
+  const key = `job:${id}`;
+  const job = (await chrome.storage.session.get(key))[key];
+  if (!job) return { done: true };
+  await chrome.storage.session.remove(key);
+  const saved = [];
+  if (action === 'original' || action === 'both') saved.push(await saveNamed(job.originalUrl, job.name));
+  if (action === 'converted' || action === 'both') saved.push(await saveNamed(job.convertedUrl, job.convertedName));
+  await addHistory({
+    name: job.name,
+    filename: saved.length ? saved.join(' + ') : undefined,
+    report: { ...job.report, diff: undefined },
+    action,
+  });
+  revokeLater([job.originalUrl, job.convertedUrl]);
+  if (job.windowId !== undefined) chrome.windows.remove(job.windowId).catch(() => {});
+  return { done: true, saved };
+}
+
+// Blobs must live until Chrome has read them; downloads start right away.
+function revokeLater(urls) {
+  setTimeout(() => {
+    chrome.runtime.sendMessage({ target: 'offscreen', type: 'revoke', urls }).catch(() => {});
+  }, 60_000);
+}
+
+async function saveNamed(url, filename) {
+  await save(url, filename);
+  return filename;
+}
+
+async function findJob(match) {
+  const all = await chrome.storage.session.get(null);
+  return Object.entries(all).filter(([k]) => k.startsWith('job:')).map(([, v]) => v).find(match);
 }
 
 async function ensureOffscreen() {
@@ -136,10 +207,6 @@ function fileNameFromUrl(url) {
   } catch {
     return 'model.3mf';
   }
-}
-
-function summary(report) {
-  return [...report.warnings.map((w) => `⚠ ${w}`), ...report.notes].join('\n').slice(0, 400);
 }
 
 function notify(title, message) {

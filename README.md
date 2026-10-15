@@ -27,8 +27,19 @@ Co se při převodu děje:
 2. Chrome → `chrome://extensions` → zapni **Režim pro vývojáře** → **Načíst rozbalené** → vyber složku `extension/`.
 3. Klikni na ikonu kostky: tam je přepínač, výběr procesu, mapování filamentů a ruční převod (přetáhni 3MF).
 
-Stažení `.3mf` z MakerWorld/Printables se pak automaticky zachytí, převede a uloží jako
-`název (Q1 Pro).3mf` (příponu jde změnit). Když převod selže, stáhne se původní soubor.
+Stažení `.3mf` z MakerWorld/Printables se pak zachytí a převede a otevře se okno s volbou:
+
+- **Převést pro QIDI** – uloží jen `název (Q1 Pro).3mf` (příponu jde změnit v popupu),
+- **Originál + kopie pro QIDI** – uloží oba soubory,
+- **Jen originál** – uloží stažený soubor beze změny,
+- **Neukládat nic** (nebo zavření okna).
+
+Pod volbou je report všech změn proti originálu: upozornění a shrnutí, soubory v archivu
+(změněné / přidané / odebrané / beze změny), hlavička a umístění objektů v modelu a nastavení projektu –
+tabulka hlavních hodnot (tiskárna, proces, filament, podložka, vrstvy, stěny, výplň, podpory, rychlosti,
+teploty…) a rozbalovací seznamy všech změněných klíčů po kategoriích, odebraných a přidaných klíčů.
+Ruční převod z popupu otevře stejné okno. Soubory bez nastavení sliceru nebo už převedené projekty se
+uloží rovnou beze změny, když převod selže, uloží se originál.
 
 ## Aktualizace profilů
 
@@ -49,8 +60,10 @@ Pak v `chrome://extensions` rozšíření obnov.
 npm test                                   # unit testy na syntetických 3MF
 npm run try -- --slice soubor.3mf ...      # převod + kontrolní slicování v QIDI Studio CLI
 npm run preview                            # popup v běžném prohlížeči (stub chrome API), port 5199
+node scripts/preview-server.mjs 5198 --sample soubor.3mf   # + dialog: /dialog.html?job=demo
 ```
 
 Struktura: `extension/lib/convert.js` (sestavení projektu, Bambu cesta), `prusa.js` + `prusa-model.js`
 (PrusaSlicer), `layout.js` (podložka, desky, umístění), `background.js` (zachytávání stahování),
-`offscreen.js` (převod a uložení přes blob URL), `popup.*`.
+`offscreen.js` (převod, drží blob originálu i převodu do rozhodnutí), `dialog.*` + `lib/report-view.js`
+(volba uložení a report), `lib/diff.js` (porovnání s originálem), `popup.*`.

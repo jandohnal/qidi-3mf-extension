@@ -5,49 +5,20 @@
 import { unzipSync, zipSync, strFromU8, strToU8 } from '../vendor/fflate.js';
 import { convertPrusaConfig } from './prusa.js';
 import { restructurePrusaModel } from './prusa-model.js';
+import { PORTABLE_PROCESS_KEYS } from './portable.js';
+import { diffProjects } from './diff.js';
 import {
   PLATE_GAP, bambuObjectMeshes, bedSize, emptyBounds, exclusionRects, extendBounds, fitShift, formatNumber,
   multiply, overlaps, parseMatrix, placeBox, plateColumns, rotate90About, usableAreas,
 } from './layout.js';
 
-// Process settings a designer typically tunes for the model itself. These are
-// carried over from the source project; speeds, accelerations, temperatures and
-// anything machine specific come from the QIDI presets instead.
-export const PORTABLE_PROCESS_KEYS = [
-  'layer_height', 'initial_layer_print_height', 'adaptive_layer_height',
-  'wall_loops', 'top_shell_layers', 'bottom_shell_layers', 'top_shell_thickness', 'bottom_shell_thickness',
-  'sparse_infill_density', 'sparse_infill_pattern', 'top_surface_pattern', 'bottom_surface_pattern',
-  'internal_solid_infill_pattern', 'infill_direction', 'infill_combination', 'infill_wall_overlap',
-  'minimum_sparse_infill_area', 'ensure_vertical_shell_thickness', 'detect_thin_wall', 'detect_overhang_wall',
-  'wall_generator', 'wall_sequence', 'wall_infill_order', 'is_infill_first', 'only_one_wall_top',
-  'only_one_wall_first_layer', 'top_one_wall_type', 'seam_position', 'seam_gap', 'seam_slope_type',
-  'enable_support', 'support_type', 'support_style', 'support_threshold_angle', 'support_on_build_plate_only',
-  'support_critical_regions_only', 'support_remove_small_overhang', 'support_top_z_distance',
-  'support_bottom_z_distance', 'support_object_xy_distance', 'support_interface_top_layers',
-  'support_interface_bottom_layers', 'support_interface_spacing', 'support_bottom_interface_spacing',
-  'support_base_pattern', 'support_base_pattern_spacing', 'support_interface_pattern', 'support_angle',
-  'support_expansion', 'enforce_support_layers', 'independent_support_layer_height',
-  'tree_support_branch_angle', 'tree_support_branch_diameter', 'tree_support_branch_distance',
-  'tree_support_wall_count', 'tree_support_with_infill', 'tree_support_adaptive_layer_height',
-  'support_filament', 'support_interface_filament', 'wall_filament', 'sparse_infill_filament',
-  'solid_infill_filament', 'raft_layers', 'raft_contact_distance', 'raft_expansion',
-  'brim_type', 'brim_width', 'brim_object_gap', 'skirt_loops', 'skirt_distance', 'skirt_height',
-  'ironing_type', 'ironing_pattern', 'ironing_flow', 'ironing_spacing', 'ironing_direction',
-  'fuzzy_skin', 'fuzzy_skin_thickness', 'fuzzy_skin_point_distance',
-  'spiral_mode', 'spiral_mode_smooth', 'print_sequence', 'interface_shells', 'reduce_crossing_wall',
-  'xy_hole_compensation', 'xy_contour_compensation', 'elefant_foot_compensation', 'slice_closing_radius',
-  'enable_prime_tower', 'prime_tower_width', 'prime_tower_brim_width', 'draft_shield',
-  'make_overhang_printable', 'make_overhang_printable_angle', 'make_overhang_printable_hole_size',
-  'enable_arc_fitting', 'bridge_angle', 'thick_bridges', 'max_bridge_length', 'top_area_threshold',
-  'mmu_segmented_region_max_width', 'mmu_segmented_region_interlocking_depth',
-  'interlocking_beam', 'interlocking_beam_width', 'interlocking_depth', 'interlocking_beam_layer_count',
-  'interlocking_orientation', 'interlocking_boundary_avoidance',
-];
+export { PORTABLE_PROCESS_KEYS };
 
 const QIDI_PREFIX = 'QIDIStudio';
 
 export function convert3mf(input, bundle, options = {}) {
   const files = unzipSync(input instanceof Uint8Array ? input : new Uint8Array(input));
+  const original = { ...files };
   const report = { source: 'unknown', sourcePrinter: '', changed: false, notes: [], warnings: [] };
   const app = readApplication(files);
 
@@ -72,6 +43,7 @@ export function convert3mf(input, bundle, options = {}) {
   }
 
   report.changed = true;
+  report.diff = diffProjects(original, files, report.source);
   const size = Object.values(files).reduce((n, f) => n + f.length, 0);
   return { bytes: zipSync(files, { level: size > 100e6 ? 1 : 6 }), report };
 }
@@ -422,12 +394,15 @@ function relocatePlates(files, src, project, report) {
   }
 
   let i = 0;
+  let moved = 0;
   files[path] = strToU8(xml.replace(/<item\b[^>]*>/g, () => {
     const { tag, m, col, row, plate } = items[i++];
     const s = shifts.get(plate);
     const t = [...m];
+    const before = parseMatrix(tag.match(/\btransform="([^"]*)"/)?.[1]);
     t[9] = m[9] - oldBed.x0 - col * oldStride.x + newBed.x0 + col * newStride.x + s.x;
     t[10] = m[10] - oldBed.y0 + row * oldStride.y + newBed.y0 - row * newStride.y + s.y;
+    if (t.some((v, k) => Math.abs(v - before[k]) > 1e-3)) moved++;
     const transform = t.map(formatNumber).join(' ');
     return /\btransform="/.test(tag) ? tag.replace(/\btransform="[^"]*"/, `transform="${transform}"`) : tag.replace(/\s*\/?>$/, ` transform="${transform}"$&`);
   }));
@@ -458,7 +433,10 @@ function relocatePlates(files, src, project, report) {
   project.wipe_tower_y = towers.map((t) => String(t[1]));
 
   if (oldBed.w !== newBed.w || oldBed.d !== newBed.d) {
-    report.notes.push(`Podložka ${oldBed.w}×${oldBed.d} → ${newBed.w}×${newBed.d} mm, objekty přesunuty (${plateCount} ${plateCount === 1 ? 'deska' : 'desek'})`);
+    const plates = `${plateCount} ${plateCount === 1 ? 'deska' : plateCount < 5 ? 'desky' : 'desek'}`;
+    report.notes.push(moved
+      ? `Podložka ${oldBed.w}×${oldBed.d} → ${newBed.w}×${newBed.d} mm, přesunuto ${moved} z ${items.length} objektů (${plates})`
+      : `Podložka ${oldBed.w}×${oldBed.d} → ${newBed.w}×${newBed.d} mm, objekty se vejdou a zůstaly na místě (${plates})`);
   }
 }
 

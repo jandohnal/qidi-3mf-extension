@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Uložit 3MF – QIDI</title>
+  <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="dialog.css">
+</head>
+<body class="dialog">
+  <header class="bar">
+    <img src="icons/icon32.png" alt="" width="28" height="28">
+    <div>
+      <h1 id="title">Načítám…</h1>
+      <p class="sub" id="subtitle"></p>
+    </div>
+  </header>
+
+  <section class="choice" id="choice" hidden>
+    <p class="question">Jak chceš soubor uložit?</p>
+    <div class="buttons">
+      <button type="button" class="primary" data-action="converted">
+        <strong>Převést pro QIDI</strong>
+        <span id="name-converted"></span>
+      </button>
+      <button type="button" data-action="both" id="btn-both">
+        <strong>Originál + kopie pro QIDI</strong>
+        <span id="name-both"></span>
+      </button>
+      <button type="button" data-action="original" id="btn-original">
+        <strong>Jen originál</strong>
+        <span id="name-original"></span>
+      </button>
+    </div>
+    <button type="button" class="link" data-action="cancel">Neukládat nic</button>
+  </section>
+
+  <main id="report"></main>
+  <script type="module" src="dialog.js"></script>
+</body>
+</html>

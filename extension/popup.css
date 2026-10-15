@@ -128,3 +128,6 @@ select, input[type="text"] {
 #history .meta { color: var(--muted); font-size: 12px; }
 
 footer { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 8px; }
+
+#result .err { color: var(--err); }
+#result p { margin: 0; }

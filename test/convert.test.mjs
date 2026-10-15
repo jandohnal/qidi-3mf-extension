@@ -176,3 +176,26 @@ test('material keys', () => {
   assert.equal(materialKey('PVA'), 'SUPPORT');
   assert.equal(chooseProcess(bundle, {}, '0.28').name, '0.28mm Extra Draft @Q1 Pro');
 });
+
+test('report lists changes against the original', () => {
+  const { report } = convert3mf(bambu3mf({ items: [[128, 128]] }), bundle, {});
+  const d = report.diff;
+  assert.deepEqual(d.files.removed.map((f) => f.name).sort(), ['Metadata/filament_settings_1.config', 'Metadata/plate_1.gcode']);
+  assert.ok(d.files.changed.some((f) => f.name === 'Metadata/project_settings.config'));
+  assert.ok(d.files.unchanged.some((f) => f.name === '3D/Objects/object_1.model'));
+  assert.deepEqual(d.model.metadata.find((m) => m.key === 'Application').before, 'BambuStudio-02.02.00.00');
+  const printer = d.settings.highlights.find((h) => h.key === 'printer_settings_id');
+  assert.equal(printer.before, 'Bambu Lab P1S 0.4 nozzle');
+  assert.equal(printer.after, bundle.printer.name);
+  assert.ok(d.settings.highlights.find((h) => h.key === 'wall_loops').same);
+  const speed = d.settings.changed.find((c) => c.key === 'outer_wall_speed');
+  assert.equal(speed.category, 'speed');
+  assert.equal(speed.before, '999');
+});
+
+test('report for a PrusaSlicer project compares mapped settings', () => {
+  const d = convert3mf(prusa3mf(), bundle, {}).report.diff;
+  assert.ok(d.files.removed.some((f) => f.name === 'Metadata/Slic3r_PE.config'));
+  assert.equal(d.settings.highlights.find((h) => h.key === 'printable_area').before, '0x0, 250x0, 250x210, 0x210');
+  assert.ok(d.model.items[0].moved);
+});
