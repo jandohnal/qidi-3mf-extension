@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "3MF → QIDI",
-  "version": "1.0.0",
-  "description": "Převádí 3MF projekty z MakerWorld a Printables na profily QIDI Studia pro tvou tiskárnu.",
+  "name": "__MSG_extName__",
+  "short_name": "__MSG_extShortName__",
+  "version": "1.1.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
   "minimum_chrome_version": "116",
+  "homepage_url": "https://github.com/jandohnal/qidi-3mf-extension",
   "permissions": ["downloads", "storage", "notifications", "scripting", "offscreen"],
   "host_permissions": [
     "https://makerworld.com/*",
@@ -13,9 +16,7 @@
     "https://*.bambulab.cn/*",
     "https://www.printables.com/*",
     "https://*.printables.com/*",
-    "https://*.prusa3d.com/*",
-    "https://*.amazonaws.com/*",
-    "https://*.cloudfront.net/*"
+    "https://*.prusa3d.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -23,6 +24,7 @@
   },
   "action": {
     "default_popup": "popup.html",
+    "default_title": "__MSG_actionTitle__",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

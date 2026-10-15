@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>3MF → QIDI</title>
@@ -9,10 +9,10 @@
   <header>
     <img src="icons/icon32.png" alt="" width="24" height="24">
     <div>
-      <h1>3MF → QIDI</h1>
-      <p class="sub" id="printer"></p>
+      <h1 data-i18n="title"></h1>
+      <p class="sub" id="printer-line"></p>
     </div>
-    <label class="switch" title="Převádět stahování z MakerWorld a Printables">
+    <label class="switch" data-i18n-title="enabledTitle">
       <input type="checkbox" id="enabled">
       <span></span>
     </label>
@@ -20,39 +20,71 @@
 
   <section class="drop" id="drop">
     <input type="file" id="file" accept=".3mf" multiple hidden>
-    <p><strong>Přetáhni sem 3MF</strong> nebo <button type="button" class="link" id="pick">vyber soubor</button></p>
-    <p class="hint">Při stažení .3mf z MakerWorld a Printables se zobrazí volba uložení a přehled změn.</p>
+    <p><strong data-i18n="dropTitle"></strong> <span data-i18n="dropOr"></span>
+      <button type="button" class="link" id="pick" data-i18n="dropPick"></button></p>
+    <p class="hint" data-i18n="dropHint"></p>
   </section>
 
   <section id="result" hidden></section>
 
   <details open>
-    <summary>Profily</summary>
+    <summary data-i18n="printerSection"></summary>
     <label class="row">
-      <span>Proces</span>
+      <span data-i18n="printer"></span>
+      <select id="model"></select>
+    </label>
+    <label class="row">
+      <span data-i18n="nozzle"></span>
+      <select id="nozzle"></select>
+    </label>
+  </details>
+
+  <details open>
+    <summary data-i18n="profilesSection"></summary>
+    <label class="row">
+      <span data-i18n="process"></span>
       <select id="process"></select>
     </label>
     <label class="check">
       <input type="checkbox" id="keep">
-      <span>Převzít nastavení autora (vrstvy, stěny, výplň, podpory, brim…)</span>
+      <span data-i18n="keepDesigner"></span>
     </label>
     <label class="row">
-      <span>Přípona souboru</span>
-      <input type="text" id="suffix" placeholder="bez přípony">
+      <span data-i18n="suffix"></span>
+      <input type="text" id="suffix" data-i18n-placeholder="suffixPlaceholder" data-i18n-title="suffixHint">
     </label>
   </details>
 
   <details>
-    <summary>Filamenty podle materiálu</summary>
+    <summary data-i18n="filamentsSection"></summary>
     <div id="materials"></div>
   </details>
 
   <details>
-    <summary>Poslední převody</summary>
+    <summary data-i18n="userPresetsSection"></summary>
+    <p class="hint" id="user-hint"></p>
+    <input type="file" id="preset-files" accept=".json,application/json" multiple hidden>
+    <button type="button" class="button" id="import" data-i18n="userPresetsImport"></button>
+    <p class="hint" id="import-result" hidden></p>
+    <ul id="user-presets"></ul>
+  </details>
+
+  <details>
+    <summary data-i18n="historySection"></summary>
     <ol id="history"></ol>
   </details>
 
-  <footer id="footer"></footer>
+  <footer>
+    <span id="footer"></span>
+    <label class="lang">
+      <span data-i18n="language"></span>
+      <select id="language">
+        <option value="auto" data-i18n="languageAuto"></option>
+        <option value="en">English</option>
+        <option value="cs">Čeština</option>
+      </select>
+    </label>
+  </footer>
   <script type="module" src="popup.js"></script>
 </body>
 </html>

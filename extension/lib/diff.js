@@ -5,63 +5,53 @@ import { strFromU8 } from '../vendor/fflate.js';
 import { mapPrusaSettings } from './prusa.js';
 import { PORTABLE_PROCESS_KEYS } from './portable.js';
 
-// Settings shown first, with Czech labels, in this order.
+// Settings shown first, in this order (labels in i18n.js).
 export const HIGHLIGHTS = [
-  ['printer_settings_id', 'Tiskárna'],
-  ['printer_model', 'Model tiskárny'],
-  ['print_settings_id', 'Proces'],
-  ['filament_settings_id', 'Filament'],
-  ['filament_type', 'Materiál'],
-  ['filament_colour', 'Barva filamentu'],
-  ['printable_area', 'Podložka'],
-  ['printable_height', 'Výška tisku'],
-  ['bed_exclude_area', 'Vyloučená oblast'],
-  ['nozzle_diameter', 'Tryska'],
-  ['gcode_flavor', 'Firmware G-code'],
-  ['machine_start_gcode', 'Start G-code'],
-  ['layer_height', 'Výška vrstvy'],
-  ['initial_layer_print_height', 'První vrstva'],
-  ['wall_loops', 'Stěny'],
-  ['top_shell_layers', 'Horní vrstvy'],
-  ['bottom_shell_layers', 'Spodní vrstvy'],
-  ['sparse_infill_density', 'Výplň'],
-  ['sparse_infill_pattern', 'Vzor výplně'],
-  ['enable_support', 'Podpory'],
-  ['support_type', 'Typ podpor'],
-  ['support_on_build_plate_only', 'Podpory jen od podložky'],
-  ['brim_type', 'Brim'],
-  ['outer_wall_speed', 'Rychlost vnější stěny'],
-  ['inner_wall_speed', 'Rychlost vnitřní stěny'],
-  ['sparse_infill_speed', 'Rychlost výplně'],
-  ['travel_speed', 'Rychlost přejezdu'],
-  ['default_acceleration', 'Akcelerace'],
-  ['outer_wall_acceleration', 'Akcelerace vnější stěny'],
-  ['nozzle_temperature', 'Teplota trysky'],
-  ['nozzle_temperature_initial_layer', 'Teplota trysky – 1. vrstva'],
-  ['textured_plate_temp', 'Podložka (texturovaná)'],
-  ['hot_plate_temp', 'Podložka (hladká PEI)'],
-  ['chamber_temperatures', 'Komora'],
-  ['filament_max_volumetric_speed', 'Max. objemový průtok'],
-  ['pressure_advance', 'Pressure advance'],
-  ['fan_max_speed', 'Ventilátor max'],
-  ['retraction_length', 'Retrakce'],
-  ['z_hop', 'Z-hop'],
-  ['wipe_tower_x', 'Čistící věž X'],
-  ['wipe_tower_y', 'Čistící věž Y'],
-  ['curr_bed_type', 'Typ podložky'],
+  'printer_settings_id',
+  'printer_model',
+  'print_settings_id',
+  'filament_settings_id',
+  'filament_type',
+  'filament_colour',
+  'printable_area',
+  'printable_height',
+  'bed_exclude_area',
+  'nozzle_diameter',
+  'gcode_flavor',
+  'machine_start_gcode',
+  'layer_height',
+  'initial_layer_print_height',
+  'wall_loops',
+  'top_shell_layers',
+  'bottom_shell_layers',
+  'sparse_infill_density',
+  'sparse_infill_pattern',
+  'enable_support',
+  'support_type',
+  'support_on_build_plate_only',
+  'brim_type',
+  'outer_wall_speed',
+  'inner_wall_speed',
+  'sparse_infill_speed',
+  'travel_speed',
+  'default_acceleration',
+  'outer_wall_acceleration',
+  'nozzle_temperature',
+  'nozzle_temperature_initial_layer',
+  'textured_plate_temp',
+  'hot_plate_temp',
+  'chamber_temperatures',
+  'filament_max_volumetric_speed',
+  'pressure_advance',
+  'fan_max_speed',
+  'retraction_length',
+  'z_hop',
+  'wipe_tower_x',
+  'wipe_tower_y',
+  'curr_bed_type',
 ];
 
-export const CATEGORIES = [
-  ['profile', 'Tiskárna a profily'],
-  ['designer', 'Tisk modelu (vrstvy, stěny, výplň, podpory…)'],
-  ['speed', 'Rychlosti'],
-  ['accel', 'Akcelerace a jerk'],
-  ['temp', 'Teploty'],
-  ['retract', 'Retrakce a z-hop'],
-  ['fan', 'Ventilátory a chlazení'],
-  ['gcode', 'G-code'],
-  ['other', 'Ostatní'],
-];
+export const CATEGORIES = ['profile', 'designer', 'speed', 'accel', 'temp', 'retract', 'fan', 'gcode', 'other'];
 
 const PROFILE_KEYS = new Set([
   'printer_settings_id', 'printer_model', 'print_settings_id', 'filament_settings_id', 'filament_ids', 'printable_area',
@@ -164,8 +154,7 @@ const MAX_VALUE = 400;
 
 function show(v) {
   if (v === undefined) return undefined;
-  if (Array.isArray(v) && !v.length) return '(prázdné)';
-  if (v === '') return '(prázdné)';
+  if (Array.isArray(v) && !v.length) return '';
   const s = Array.isArray(v) ? v.join(', ') : String(v);
   return s.length > MAX_VALUE ? `${s.slice(0, MAX_VALUE)}…` : s;
 }
@@ -183,9 +172,8 @@ function diffSettings(a, b) {
     else if (JSON.stringify(a[key]) === JSON.stringify(b[key])) same.push(key);
     else changed.push({ key, before: show(a[key]), after: show(b[key]), category: categoryOf(key) });
   }
-  const highlights = HIGHLIGHTS.filter(([key]) => key in a || key in b).map(([key, label]) => ({
+  const highlights = HIGHLIGHTS.filter((key) => key in a || key in b).map((key) => ({
     key,
-    label,
     before: show(a[key]),
     after: show(b[key]),
     same: JSON.stringify(a[key]) === JSON.stringify(b[key]),

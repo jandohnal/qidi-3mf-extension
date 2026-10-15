@@ -1,9 +1,11 @@
 // Intercepts 3MF downloads from MakerWorld and Printables, converts them for
-// the QIDI printer and asks in a dialog window what to save: the original, the
-// converted file or both. The conversion runs in an offscreen document, which
-// (unlike the service worker) can hand files to chrome.downloads as blob: URLs.
+// the chosen QIDI printer and asks in a dialog window what to save: the
+// original, the converted file or both. The conversion runs in an offscreen
+// document, which (unlike the service worker) can hand files to
+// chrome.downloads as blob: URLs.
 
-import { addHistory, loadSettings, outputName } from './lib/settings.js';
+import { LocalizedError, t } from './lib/i18n.js';
+import { addHistory, loadSettings, loadUserPresets, outputName } from './lib/settings.js';
 
 const SOURCE_HOSTS = [
   /(^|\.)makerworld\.com$/,
@@ -13,42 +15,51 @@ const SOURCE_HOSTS = [
   /(^|\.)prusa3d\.com$/,
 ];
 
-// Downloads started by this extension, by URL: they must not be intercepted
-// again, and need their file name re-suggested here. This listener also runs
-// for them, and an empty suggest() would make Chrome name a blob: download
-// after the blob's UUID.
-const ownDownloads = new Map();
+// Downloads started by this extension, by URL, kept in session storage so a
+// restarted service worker still knows them. They must not be intercepted
+// again and need their file name re-suggested: this listener also runs for
+// them, and an empty suggest() would name a blob: download after its UUID.
+const OWN = 'ownDownloads';
 
-function save(url, filename) {
-  ownDownloads.set(url, filename);
-  return chrome.downloads.download({ url, filename, conflictAction: 'uniquify' });
+async function save(url, filename) {
+  const { [OWN]: own = {} } = await chrome.storage.session.get(OWN);
+  own[url] = safeFileName(filename);
+  await chrome.storage.session.set({ [OWN]: own });
+  return chrome.downloads.download({ url, filename: own[url], conflictAction: 'uniquify' });
+}
+
+async function takeOwn(url) {
+  const { [OWN]: own = {} } = await chrome.storage.session.get(OWN);
+  if (!(url in own)) return undefined;
+  const name = own[url];
+  delete own[url];
+  await chrome.storage.session.set({ [OWN]: own });
+  return name;
 }
 
 chrome.downloads.onDeterminingFilename.addListener((item, suggest) => {
-  const own = ownDownloads.get(item.url);
-  if (own !== undefined) {
-    ownDownloads.delete(item.url);
-    suggest({ filename: own, conflictAction: 'uniquify' });
-    return;
-  }
-  if (item.byExtensionId === chrome.runtime.id || !is3mf(item) || !fromSourceSite(item)) {
-    suggest();
-    return;
-  }
-  // The decision needs the settings, so answer asynchronously.
-  loadSettings().then((settings) => {
-    if (!settings.enabled) {
-      suggest();
-      return;
+  decide(item).then((decision) => {
+    if (decision.filename) suggest({ filename: decision.filename, conflictAction: 'uniquify' });
+    else suggest();
+    if (decision.intercept) {
+      chrome.downloads.cancel(item.id).then(() => chrome.downloads.erase({ id: item.id })).catch(() => {});
+      handle(item, decision.settings);
     }
-    chrome.downloads.cancel(item.id).then(() => chrome.downloads.erase({ id: item.id }));
-    suggest();
-    handle(item, settings);
   });
   return true;
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+async function decide(item) {
+  const own = await takeOwn(item.url);
+  if (own !== undefined) return { filename: own };
+  if (item.byExtensionId === chrome.runtime.id || !is3mf(item) || !fromSourceSite(item)) return {};
+  const settings = await loadSettings();
+  return settings.enabled ? { intercept: true, settings } : {};
+}
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Only this extension's own pages talk to the service worker.
+  if (sender.id !== chrome.runtime.id || msg?.target === 'offscreen') return false;
   const reply = (p) => p.then((r) => sendResponse(r ?? {}), (e) => sendResponse({ error: String(e?.message || e) }));
   if (msg?.type === 'job-action') {
     reply(finishJob(msg.id, msg.action));
@@ -70,6 +81,7 @@ chrome.windows.onRemoved.addListener(async (windowId) => {
 
 function is3mf(item) {
   if ((item.filename || '').toLowerCase().endsWith('.3mf')) return true;
+  if (/3mf|3dmanufacturing/i.test(item.mime || '')) return true;
   try {
     return new URL(item.finalUrl || item.url).pathname.toLowerCase().endsWith('.3mf');
   } catch {
@@ -91,14 +103,15 @@ function fromSourceSite(item) {
 
 async function handle(item, settings) {
   const url = item.finalUrl || item.url;
-  const name = (item.filename || '').split(/[\\/]/).pop() || fileNameFromUrl(url);
+  let name = (item.filename || '').split(/[\\/]/).pop() || fileNameFromUrl(url);
+  if (!/\.3mf$/i.test(name)) name += '.3mf';
   try {
     const source = url.startsWith('blob:') ? { base64: await fetchBlobFromPage(url) } : { url };
     await startJob({ name, source, settings, manual: false });
   } catch (e) {
     console.error('3MF download failed', e);
     await addHistory({ name, error: String(e?.message || e) });
-    notify('Soubor se nepodařilo zpracovat', `${name}: ${e?.message || e}. Stahuji původní soubor.`);
+    notify(t('notifyFailedTitle'), t('notifyFailedOriginal', { name, error: e?.message || e }));
     // Fall back to the original download so nothing is lost.
     if (!url.startsWith('blob:')) await save(url, name);
   }
@@ -107,20 +120,28 @@ async function handle(item, settings) {
 // Converts the file and opens the dialog asking what to save.
 async function startJob({ name, source, settings, manual }) {
   await ensureOffscreen();
-  const res = await chrome.runtime.sendMessage({ target: 'offscreen', type: 'convert', ...source, settings });
-  if (!res) throw new Error('převod neodpověděl');
+  const res = await chrome.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'convert',
+    ...source,
+    settings,
+    userPresets: await loadUserPresets(),
+  });
+  if (!res) throw new LocalizedError('errNoResponse');
+  if (res.fatal) throw new Error(res.fatal);
   const { originalUrl, convertedUrl, report, error } = res;
   if (error || !report.changed) {
     // Nothing to choose: save the original as it was downloaded.
-    if (!manual && originalUrl) await save(originalUrl, name);
+    if (!manual) await save(originalUrl, name);
     revokeLater([originalUrl, convertedUrl]);
     await addHistory(error ? { name, error } : { name, filename: name, report });
-    notify(error ? 'Převod se nepovedl' : `Beze změny: ${name}`,
-      error ? `${name}: ${error}${manual ? '' : '. Uložen původní soubor.'}` : report.notes.join('\n'));
+    if (error) notify(t('notifyConversionFailed'), manual ? `${name}: ${error}` : t('notifySavedOriginal', { name, error }));
+    else notify(t('notifyUnchanged', { name }), report.notes.map((n) => t(n.id, n.params)).join('\n'));
     return { done: true };
   }
   const id = crypto.randomUUID();
-  const job = { id, name, convertedName: outputName(name, settings.suffix), manual, originalUrl, convertedUrl, report };
+  const convertedName = outputName(name, settings.suffix, { printer: { model: res.printerModel } });
+  const job = { id, name, convertedName, manual, originalUrl, convertedUrl, report };
   await chrome.storage.session.set({ [`job:${id}`]: job });
   const win = await chrome.windows.create({
     url: chrome.runtime.getURL(`dialog.html?job=${id}`),
@@ -161,7 +182,7 @@ function revokeLater(urls) {
 
 async function saveNamed(url, filename) {
   await save(url, filename);
-  return filename;
+  return safeFileName(filename);
 }
 
 async function findJob(match) {
@@ -179,26 +200,33 @@ async function ensureOffscreen() {
   await chrome.offscreen.createDocument({
     url: path,
     reasons: ['BLOBS'],
-    justification: 'Converting downloaded 3MF files and saving the result.',
+    justification: 'Converting downloaded 3MF files and holding them until the user chooses what to save.',
   });
 }
 
-// blob: URLs only resolve inside the page that created them.
+// blob: URLs only resolve inside the page that created them; try every open
+// tab of that site.
 async function fetchBlobFromPage(url) {
   const origin = new URL(new URL(url).pathname).origin;
-  const [tab] = await chrome.tabs.query({ url: `${origin}/*` });
-  if (!tab) throw new Error('stránka, která soubor vytvořila, už není otevřená');
-  const [{ result }] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    args: [url],
-    func: async (blobUrl) => {
-      const buf = new Uint8Array(await (await fetch(blobUrl)).arrayBuffer());
-      let s = '';
-      for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-      return btoa(s);
-    },
-  });
-  return result;
+  const tabs = await chrome.tabs.query({ url: `${origin}/*` });
+  for (const tab of tabs) {
+    try {
+      const [{ result }] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        args: [url],
+        func: async (blobUrl) => {
+          const buf = new Uint8Array(await (await fetch(blobUrl)).arrayBuffer());
+          let s = '';
+          for (let i = 0; i < buf.length; i += 0x8000) s += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+          return btoa(s);
+        },
+      });
+      if (result) return result;
+    } catch {
+      // Not the tab that created the blob.
+    }
+  }
+  throw new LocalizedError('errPageClosed');
 }
 
 function fileNameFromUrl(url) {
@@ -209,11 +237,17 @@ function fileNameFromUrl(url) {
   }
 }
 
+// chrome.downloads rejects names with path separators or reserved characters.
+function safeFileName(name) {
+  const clean = String(name).replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/^[.\s]+|[.\s]+$/g, '').slice(0, 200);
+  return clean || 'model.3mf';
+}
+
 function notify(title, message) {
   chrome.notifications.create({
     type: 'basic',
     iconUrl: chrome.runtime.getURL('icons/icon128.png'),
     title,
-    message,
+    message: String(message).slice(0, 400),
   });
 }

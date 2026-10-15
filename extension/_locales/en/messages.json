@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "3MF to QIDI – MakerWorld & Printables converter" },
+  "extShortName": { "message": "3MF → QIDI" },
+  "extDescription": { "message": "Converts 3MF projects from MakerWorld (Bambu Studio) and Printables (PrusaSlicer) to QIDI Studio profiles for your QIDI printer." },
+  "actionTitle": { "message": "3MF → QIDI" }
+}

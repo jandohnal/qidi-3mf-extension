@@ -72,9 +72,9 @@ table.highlights td:nth-child(2) { white-space: nowrap; }
 .mark.same { color: var(--muted); }
 .mark.diff { color: var(--accent); }
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--soft); }
-.tag.změněn { background: var(--accent-soft); color: var(--accent); }
-.tag.přidán { color: var(--ok); }
-.tag.odebrán { color: var(--err); }
+.tag.changed { background: var(--accent-soft); color: var(--accent); }
+.tag.added { color: var(--ok); }
+.tag.removed { color: var(--err); }
 code { font-size: 12px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }

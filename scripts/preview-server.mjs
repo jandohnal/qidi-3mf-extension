@@ -17,11 +17,13 @@ const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/cs
 
 const STUB = `<script>
   const store = { sync: {}, session: {}, local: { history: [{ name: 'ukazka.3mf', filename: 'ukazka (Q1 Pro).3mf', time: Date.now(),
-    report: { changed: true, warnings: ['Ukázkové varování'], notes: ['Ukázková poznámka'] } }] } };
+    report: { changed: true, warnings: [{ id: 'warnExcluded', params: {} }], notes: [{ id: 'noteProcess', params: { name: '0.20mm Standard @Q1 Pro' } }] } }] } };
+  const lang = new URLSearchParams(location.search).get('lang');
+  if (lang) store.sync.settings = { language: lang };
   // dialog.html?job=demo converts the sample file into a job on first read.
   async function demoJob() {
     const { convert3mf } = await import('/lib/convert.js');
-    const bundle = await (await fetch('/profiles/printer.json')).json();
+    const bundle = await (await fetch('/profiles/q1-pro-0.4.json')).json();
     const bytes = new Uint8Array(await (await fetch('/__sample.3mf')).arrayBuffer());
     const { report } = convert3mf(bytes, bundle, {});
     const name = ${JSON.stringify(SAMPLE ? path.basename(SAMPLE) : 'sample.3mf')};

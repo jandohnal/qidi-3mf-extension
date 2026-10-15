@@ -131,3 +131,22 @@ footer { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line)
 
 #result .err { color: var(--err); }
 #result p { margin: 0; }
+
+.button {
+  font: inherit;
+  color: var(--fg);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin: 4px 0;
+}
+.button:hover { border-color: var(--accent); }
+#user-presets { margin: 6px 0 0; padding-left: 18px; }
+#user-presets li { margin: 3px 0; }
+.meta { color: var(--muted); font-size: 12px; }
+
+footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+footer .lang { display: flex; align-items: center; gap: 6px; }
+footer select { width: auto; font-size: 11px; padding: 2px 4px; }

@@ -5,7 +5,7 @@ import { zipSync, unzipSync, strToU8, strFromU8 } from '../extension/vendor/ffla
 import { convert3mf, materialKey, chooseProcess } from '../extension/lib/convert.js';
 import { placeBox, plateColumns } from '../extension/lib/layout.js';
 
-const bundle = JSON.parse(fs.readFileSync(new URL('../extension/profiles/printer.json', import.meta.url)));
+const bundle = JSON.parse(fs.readFileSync(new URL('../extension/profiles/q1-pro-0.4.json', import.meta.url)));
 
 const cube = (size = 20) => {
   const v = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0], [0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]]
@@ -198,4 +198,47 @@ test('report for a PrusaSlicer project compares mapped settings', () => {
   assert.ok(d.files.removed.some((f) => f.name === 'Metadata/Slic3r_PE.config'));
   assert.equal(d.settings.highlights.find((h) => h.key === 'printable_area').before, '0x0, 250x0, 250x210, 0x210');
   assert.ok(d.model.items[0].moved);
+});
+
+test('imported user presets extend the bundle of their printer only', async () => {
+  const { mergeUserPresets, parseUserPreset, applicablePresets } = await import('../extension/lib/settings.js');
+  const mine = parseUserPreset(JSON.stringify({
+    name: 'My PLA', inherits: 'Generic PLA @Qidi Q1 Pro 0.4 nozzle', from: 'User', nozzle_temperature: ['215'],
+  }), 'user/default/filament/My PLA.json');
+  const other = parseUserPreset(JSON.stringify({ name: 'Elsewhere', inherits: 'Generic PLA @Qidi X-Max 3 0.4 nozzle', filament_type: ['PLA'] }));
+  assert.equal(mine.type, 'filament');
+  assert.equal(parseUserPreset('not json'), undefined);
+  assert.deepEqual(applicablePresets(bundle, [mine, other]).map((p) => p.name), ['My PLA']);
+  const merged = mergeUserPresets(structuredClone(bundle), [mine, other]);
+  assert.equal(merged.filaments['My PLA'].user, true);
+  assert.deepEqual(merged.filaments['My PLA'].settings.nozzle_temperature, ['215']);
+  assert.equal(merged.filaments['My PLA'].settings.filament_type[0], 'PLA');
+  const c = config(read(convert3mf(bambu3mf({ items: [[128, 128]] }), merged, { filamentMap: { PETG: 'My PLA' } }).bytes));
+  assert.equal(c.filament_settings_id[0], 'My PLA');
+  assert.equal(c.inherits_group[1], 'Generic PLA @Qidi Q1 Pro 0.4 nozzle');
+});
+
+test('output names use the printer model', async () => {
+  const { outputName } = await import('../extension/lib/settings.js');
+  assert.equal(outputName('Boat.3mf', ' ({printer})', bundle), 'Boat (Q1 Pro).3mf');
+  assert.equal(outputName('Boat.3MF', '', bundle), 'Boat.3mf');
+});
+
+test('report messages render in English and Czech', async () => {
+  const { fmt, setLanguage } = await import('../extension/lib/i18n.js');
+  const { report } = convert3mf(bambu3mf({ items: [[128, 128]] }), bundle, {});
+  const note = report.notes.find((n) => n.id === 'notePrinter');
+  setLanguage('en');
+  assert.equal(fmt(note), `Printer Bambu Lab P1S 0.4 nozzle → ${bundle.printer.name}`);
+  setLanguage('cs');
+  assert.equal(fmt(note), `Tiskárna Bambu Lab P1S 0.4 nozzle → ${bundle.printer.name}`);
+  assert.match(fmt(report.notes.find((n) => n.id === 'noteGcodeRemoved')), /1 deska/);
+  setLanguage('en');
+});
+
+test('archives unpacking beyond the limit are refused', async () => {
+  const { MAX_UNPACKED } = await import('../extension/lib/convert.js');
+  // A zero-filled entry compresses to almost nothing but unpacks past the limit.
+  const big = zipSync({ 'big.bin': new Uint8Array(Math.ceil(MAX_UNPACKED) + 1) }, { level: 1 });
+  assert.throws(() => convert3mf(big, bundle, {}), /MB/);
 });

@@ -1,7 +1,7 @@
 // Converts 3MF files and (optionally) slices the results with the QIDI Studio
 // CLI to check that QIDI Studio accepts them.
 //
-// Usage: node scripts/try-convert.mjs [--slice] [--out <dir>] file.3mf...
+// Usage: node scripts/try-convert.mjs [--slice] [--printer "X-Max 3 0.4 nozzle"] [--out <dir>] file.3mf...
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,10 +14,15 @@ const args = process.argv.slice(2);
 const slice = args.includes('--slice');
 const outIdx = args.indexOf('--out');
 const outDir = outIdx >= 0 ? args[outIdx + 1] : fs.mkdtempSync(path.join(os.tmpdir(), 'qidi-out-'));
-const inputs = args.filter((a, i) => !a.startsWith('--') && args[i - 1] !== '--out');
+const printerIdx = args.indexOf('--printer');
+const printer = printerIdx >= 0 ? args[printerIdx + 1] : 'Q1 Pro 0.4 nozzle';
+const inputs = args.filter((a, i) => !a.startsWith('--') && !['--out', '--printer'].includes(args[i - 1]));
 const QIDI_BIN = '/Applications/QIDIStudio.app/Contents/MacOS/QIDIStudio';
 
-const bundle = JSON.parse(fs.readFileSync(new URL('../extension/profiles/printer.json', import.meta.url)));
+const index = JSON.parse(fs.readFileSync(new URL('../extension/profiles/index.json', import.meta.url)));
+const entry = index.printers.find((p) => p.name === printer);
+if (!entry) throw new Error(`Unknown printer ${printer}; known: ${index.printers.map((p) => p.name).join(', ')}`);
+const bundle = JSON.parse(fs.readFileSync(new URL(`../extension/profiles/${entry.file}`, import.meta.url)));
 fs.mkdirSync(outDir, { recursive: true });
 
 let failures = 0;

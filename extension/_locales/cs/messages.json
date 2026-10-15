@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "3MF do QIDI – převodník z MakerWorld a Printables" },
+  "extShortName": { "message": "3MF → QIDI" },
+  "extDescription": { "message": "Převádí 3MF projekty z MakerWorld (Bambu Studio) a Printables (PrusaSlicer) na profily QIDI Studia pro tvou tiskárnu QIDI." },
+  "actionTitle": { "message": "3MF → QIDI" }
+}

@@ -1,0 +1,200 @@
+{
+ "generatedAt": "2026-10-15T21:02:50.865Z",
+ "slicer": "QIDIStudio",
+ "slicerVersion": "02.06.00.51",
+ "default": "Q1 Pro 0.4 nozzle",
+ "printers": [
+  {
+   "name": "Q1 Pro 0.2 nozzle",
+   "model": "Q1 Pro",
+   "nozzle": "0.2",
+   "file": "q1-pro-0.2.json"
+  },
+  {
+   "name": "Q1 Pro 0.4 nozzle",
+   "model": "Q1 Pro",
+   "nozzle": "0.4",
+   "file": "q1-pro-0.4.json"
+  },
+  {
+   "name": "Q1 Pro 0.6 nozzle",
+   "model": "Q1 Pro",
+   "nozzle": "0.6",
+   "file": "q1-pro-0.6.json"
+  },
+  {
+   "name": "Q1 Pro 0.8 nozzle",
+   "model": "Q1 Pro",
+   "nozzle": "0.8",
+   "file": "q1-pro-0.8.json"
+  },
+  {
+   "name": "Q2 0.2 nozzle",
+   "model": "Q2",
+   "nozzle": "0.2",
+   "file": "q2-0.2.json"
+  },
+  {
+   "name": "Q2 0.4 nozzle",
+   "model": "Q2",
+   "nozzle": "0.4",
+   "file": "q2-0.4.json"
+  },
+  {
+   "name": "Q2 0.6 nozzle",
+   "model": "Q2",
+   "nozzle": "0.6",
+   "file": "q2-0.6.json"
+  },
+  {
+   "name": "Q2 0.8 nozzle",
+   "model": "Q2",
+   "nozzle": "0.8",
+   "file": "q2-0.8.json"
+  },
+  {
+   "name": "Q2C 0.2 nozzle",
+   "model": "Q2C",
+   "nozzle": "0.2",
+   "file": "q2c-0.2.json"
+  },
+  {
+   "name": "Q2C 0.4 nozzle",
+   "model": "Q2C",
+   "nozzle": "0.4",
+   "file": "q2c-0.4.json"
+  },
+  {
+   "name": "Q2C 0.6 nozzle",
+   "model": "Q2C",
+   "nozzle": "0.6",
+   "file": "q2c-0.6.json"
+  },
+  {
+   "name": "Q2C 0.8 nozzle",
+   "model": "Q2C",
+   "nozzle": "0.8",
+   "file": "q2c-0.8.json"
+  },
+  {
+   "name": "X-Max 3 0.2 nozzle",
+   "model": "X-Max 3",
+   "nozzle": "0.2",
+   "file": "x-max-3-0.2.json"
+  },
+  {
+   "name": "X-Max 3 0.4 nozzle",
+   "model": "X-Max 3",
+   "nozzle": "0.4",
+   "file": "x-max-3-0.4.json"
+  },
+  {
+   "name": "X-Max 3 0.6 nozzle",
+   "model": "X-Max 3",
+   "nozzle": "0.6",
+   "file": "x-max-3-0.6.json"
+  },
+  {
+   "name": "X-Max 3 0.8 nozzle",
+   "model": "X-Max 3",
+   "nozzle": "0.8",
+   "file": "x-max-3-0.8.json"
+  },
+  {
+   "name": "X-Max 4 0.2 nozzle",
+   "model": "X-Max 4",
+   "nozzle": "0.2",
+   "file": "x-max-4-0.2.json"
+  },
+  {
+   "name": "X-Max 4 0.4 nozzle",
+   "model": "X-Max 4",
+   "nozzle": "0.4",
+   "file": "x-max-4-0.4.json"
+  },
+  {
+   "name": "X-Max 4 0.6 nozzle",
+   "model": "X-Max 4",
+   "nozzle": "0.6",
+   "file": "x-max-4-0.6.json"
+  },
+  {
+   "name": "X-Max 4 0.8 nozzle",
+   "model": "X-Max 4",
+   "nozzle": "0.8",
+   "file": "x-max-4-0.8.json"
+  },
+  {
+   "name": "X-Plus 3 0.2 nozzle",
+   "model": "X-Plus 3",
+   "nozzle": "0.2",
+   "file": "x-plus-3-0.2.json"
+  },
+  {
+   "name": "X-Plus 3 0.4 nozzle",
+   "model": "X-Plus 3",
+   "nozzle": "0.4",
+   "file": "x-plus-3-0.4.json"
+  },
+  {
+   "name": "X-Plus 3 0.6 nozzle",
+   "model": "X-Plus 3",
+   "nozzle": "0.6",
+   "file": "x-plus-3-0.6.json"
+  },
+  {
+   "name": "X-Plus 3 0.8 nozzle",
+   "model": "X-Plus 3",
+   "nozzle": "0.8",
+   "file": "x-plus-3-0.8.json"
+  },
+  {
+   "name": "X-Plus 4 0.2 nozzle",
+   "model": "X-Plus 4",
+   "nozzle": "0.2",
+   "file": "x-plus-4-0.2.json"
+  },
+  {
+   "name": "X-Plus 4 0.4 nozzle",
+   "model": "X-Plus 4",
+   "nozzle": "0.4",
+   "file": "x-plus-4-0.4.json"
+  },
+  {
+   "name": "X-Plus 4 0.6 nozzle",
+   "model": "X-Plus 4",
+   "nozzle": "0.6",
+   "file": "x-plus-4-0.6.json"
+  },
+  {
+   "name": "X-Plus 4 0.8 nozzle",
+   "model": "X-Plus 4",
+   "nozzle": "0.8",
+   "file": "x-plus-4-0.8.json"
+  },
+  {
+   "name": "X-Smart 3 0.2 nozzle",
+   "model": "X-Smart 3",
+   "nozzle": "0.2",
+   "file": "x-smart-3-0.2.json"
+  },
+  {
+   "name": "X-Smart 3 0.4 nozzle",
+   "model": "X-Smart 3",
+   "nozzle": "0.4",
+   "file": "x-smart-3-0.4.json"
+  },
+  {
+   "name": "X-Smart 3 0.6 nozzle",
+   "model": "X-Smart 3",
+   "nozzle": "0.6",
+   "file": "x-smart-3-0.6.json"
+  },
+  {
+   "name": "X-Smart 3 0.8 nozzle",
+   "model": "X-Smart 3",
+   "nozzle": "0.8",
+   "file": "x-smart-3-0.8.json"
+  }
+ ]
+}

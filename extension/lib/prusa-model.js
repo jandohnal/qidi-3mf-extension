@@ -4,6 +4,7 @@
 
 import { strFromU8, strToU8 } from '../vendor/fflate.js';
 import { mapPrusaSettings } from './prusa.js';
+import { LocalizedError, msg } from './i18n.js';
 import { emptyBounds, extendBounds, placeBox, rotate90About, multiply, fitShift, usableAreas } from './layout.js';
 
 const PART_TYPES = {
@@ -40,7 +41,7 @@ export function restructurePrusaModel(files, { oldBed, newBed, app, project, rep
     printable: attr(m[1], 'printable') ?? '1',
   }));
 
-  if (!objects.size || objects.has(null)) throw new Error('Nepodporovaná struktura PrusaSlicer 3MF (komponenty).');
+  if (!objects.size || objects.has(null)) throw new LocalizedError('errUnsupportedPrusa');
 
   // Main model object ids and sub-model mesh ids, numbered like QIDI does.
   let nextId = 1;
@@ -81,17 +82,16 @@ export function restructurePrusaModel(files, { oldBed, newBed, app, project, rep
       dy = cy + place.shift.y;
       if (place.rotated) {
         rotation = rotate90About(place.center.x - cx + newBed.x0, place.center.y - cy + newBed.y0);
-        report.notes.push('Rozložení otočeno o 90°, aby se vešlo na podložku');
+        report.notes.push(msg('noteLayoutRotated'));
       }
-      if (place.inExcluded) report.warnings.push('Objekty zasahují k vyloučené oblasti podložky – zkontroluj rozložení v QIDI Studiu.');
+      if (place.inExcluded) report.warnings.push(msg('warnExcluded'));
     } else {
       const shift = fitShift(local, usableAreas(newBed)[1]);
       dx = cx + shift.x;
       dy = cy + shift.y;
-      report.warnings.push(
-        `Objekty zabírají ${Math.round(all[2] - all[0])}×${Math.round(all[3] - all[1])} mm a na podložku ` +
-          `${newBed.w}×${newBed.d} mm se nevejdou – v QIDI Studiu je přeskládej (Arrange).`,
-      );
+      report.warnings.push(msg('warnTooBig', {
+        w: Math.round(all[2] - all[0]), d: Math.round(all[3] - all[1]), bw: newBed.w, bd: newBed.d,
+      }));
     }
   }
 
@@ -137,7 +137,7 @@ export function restructurePrusaModel(files, { oldBed, newBed, app, project, rep
   for (const name of Object.keys(files)) {
     if (/^Metadata\/(Slic3r_PE.*|Prusa_Slicer_.*)\.(config|txt|xml)$/i.test(name)) delete files[name];
   }
-  report.notes.push(`Model převeden do formátu QIDI Studia (${converted.length} objektů, ${items.length} instancí)`);
+  report.notes.push(msg('notePrusaRebuilt', { objects: converted.length, instances: items.length }));
 }
 
 function parseObjects(xml) {
@@ -274,7 +274,7 @@ function modelSettings(converted, items, byId, project, report) {
     );
   }
   out.push('  </plate>\n</config>\n');
-  if (unknown.size) report.warnings.push(`Nastavení u objektů bez obdoby v QIDI Studiu (vynechána): ${[...unknown].join(', ')}`);
+  if (unknown.size) report.warnings.push(msg('warnUnmappedObjectSettings', { keys: [...unknown].join(', ') }));
   return out.join('');
 }
 

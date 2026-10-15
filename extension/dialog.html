@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Uložit 3MF – QIDI</title>
+  <title>3MF → QIDI</title>
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="dialog.css">
 </head>
@@ -11,28 +11,28 @@
   <header class="bar">
     <img src="icons/icon32.png" alt="" width="28" height="28">
     <div>
-      <h1 id="title">Načítám…</h1>
+      <h1 id="title" data-i18n="loading"></h1>
       <p class="sub" id="subtitle"></p>
     </div>
   </header>
 
   <section class="choice" id="choice" hidden>
-    <p class="question">Jak chceš soubor uložit?</p>
+    <p class="question" data-i18n="question"></p>
     <div class="buttons">
       <button type="button" class="primary" data-action="converted">
-        <strong>Převést pro QIDI</strong>
+        <strong data-i18n="actionConverted"></strong>
         <span id="name-converted"></span>
       </button>
       <button type="button" data-action="both" id="btn-both">
-        <strong>Originál + kopie pro QIDI</strong>
+        <strong data-i18n="actionBoth"></strong>
         <span id="name-both"></span>
       </button>
       <button type="button" data-action="original" id="btn-original">
-        <strong>Jen originál</strong>
+        <strong data-i18n="actionOriginal"></strong>
         <span id="name-original"></span>
       </button>
     </div>
-    <button type="button" class="link" data-action="cancel">Neukládat nic</button>
+    <button type="button" class="link" data-action="cancel" data-i18n="actionCancel"></button>
   </section>
 
   <main id="report"></main>

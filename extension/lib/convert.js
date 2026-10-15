@@ -7,6 +7,7 @@ import { convertPrusaConfig } from './prusa.js';
 import { restructurePrusaModel } from './prusa-model.js';
 import { PORTABLE_PROCESS_KEYS } from './portable.js';
 import { diffProjects } from './diff.js';
+import { LocalizedError, msg } from './i18n.js';
 import {
   PLATE_GAP, bambuObjectMeshes, bedSize, emptyBounds, exclusionRects, extendBounds, fitShift, formatNumber,
   multiply, overlaps, parseMatrix, placeBox, plateColumns, rotate90About, usableAreas,
@@ -16,8 +17,17 @@ export { PORTABLE_PROCESS_KEYS };
 
 const QIDI_PREFIX = 'QIDIStudio';
 
+// More than this does not fit in browser memory next to the converted copy.
+export const MAX_UNPACKED = 1500e6;
+
 export function convert3mf(input, bundle, options = {}) {
-  const files = unzipSync(input instanceof Uint8Array ? input : new Uint8Array(input));
+  const data = input instanceof Uint8Array ? input : new Uint8Array(input);
+  let unpacked = 0;
+  unzipSync(data, { filter: (f) => ((unpacked += f.originalSize), false) });
+  if (unpacked > MAX_UNPACKED) {
+    throw new LocalizedError('errTooLarge', { size: Math.round(unpacked / 1e6), limit: Math.round(MAX_UNPACKED / 1e6) });
+  }
+  const files = unzipSync(data);
   const original = { ...files };
   const report = { source: 'unknown', sourcePrinter: '', changed: false, notes: [], warnings: [] };
   const app = readApplication(files);
@@ -27,7 +37,7 @@ export function convert3mf(input, bundle, options = {}) {
     report.sourcePrinter = src.printer_settings_id || src.printer_model || '';
     report.source = app.startsWith(QIDI_PREFIX) ? 'qidi' : app.startsWith('Orca') ? 'orca' : 'bambu';
     if (report.source === 'qidi' && report.sourcePrinter === bundle.printer.name && !options.force) {
-      report.notes.push(`Už je to projekt QIDI Studia pro ${bundle.printer.name}, beze změny.`);
+      report.notes.push(msg('noteAlreadyQidi', { printer: bundle.printer.name }));
       return { bytes: input, report };
     }
     convertBambuFamily(files, src, bundle, options, report);
@@ -38,7 +48,7 @@ export function convert3mf(input, bundle, options = {}) {
     convertPrusa(files, ini, bundle, options, report);
   } else {
     report.source = 'plain';
-    report.notes.push('3MF neobsahuje nastavení sliceru, QIDI Studio ho otevře s aktuálními profily. Beze změny.');
+    report.notes.push(msg('notePlain'));
     return { bytes: input, report };
   }
 
@@ -84,16 +94,16 @@ function convertBambuFamily(files, src, bundle, options, report) {
   dropSlicerArtifacts(files, report);
 
   report.notes.push(
-    `Tiskárna ${report.sourcePrinter || '?'} → ${bundle.printer.name}`,
-    `Proces: ${project.print_settings_id}`,
-    `Filamenty: ${project.filament_settings_id.join(', ')}`,
+    msg('notePrinter', { from: report.sourcePrinter || '?', to: bundle.printer.name }),
+    msg('noteProcess', { name: project.print_settings_id }),
+    msg('noteFilaments', { names: project.filament_settings_id.join(', ') }),
   );
   noteApplied(report);
 }
 
 function noteApplied(report) {
   if (report.applied?.length) {
-    report.notes.push(`Převzato od autora (odlišné od profilu): ${report.applied.join(', ')}`);
+    report.notes.push(msg('noteApplied', { keys: report.applied.join(', ') }));
   }
 }
 
@@ -132,9 +142,9 @@ function convertPrusa(files, ini, bundle, options, report) {
   });
   rewriteSliceInfo(files, bundle);
   report.notes.push(
-    `Tiskárna ${report.sourcePrinter || '?'} → ${bundle.printer.name}`,
-    `Proces: ${project.print_settings_id}`,
-    `Filamenty: ${project.filament_settings_id.join(', ')}`,
+    msg('notePrinter', { from: report.sourcePrinter || '?', to: bundle.printer.name }),
+    msg('noteProcess', { name: project.print_settings_id }),
+    msg('noteFilaments', { names: project.filament_settings_id.join(', ') }),
   );
   noteApplied(report);
 }
@@ -373,10 +383,9 @@ function relocatePlates(files, src, project, report) {
     if (!place) {
       const area = usableAreas(newBed)[1];
       shifts.set(plate, fitShift(box, area));
-      report.warnings.push(
-        `Deska ${plate}: objekty zabírají ${Math.round(box[2] - box[0])}×${Math.round(box[3] - box[1])} mm a na podložku ` +
-          `${newBed.w}×${newBed.d} mm se nevejdou – v QIDI Studiu je přeskládej (Arrange) nebo rozděl na víc desek.`,
-      );
+      report.warnings.push(msg('warnPlateTooBig', {
+        plate, w: Math.round(box[2] - box[0]), d: Math.round(box[3] - box[1]), bw: newBed.w, bd: newBed.d,
+      }));
       continue;
     }
     let rotation;
@@ -385,10 +394,10 @@ function relocatePlates(files, src, project, report) {
       const { x: cx, y: cy } = place.center;
       rotation = { local: place.center, matrix: rotate90About(cx + oldBed.x0 + col * oldStride.x, cy + oldBed.y0 - row * oldStride.y) };
       for (const it of onPlate) it.m = multiply(it.m, rotation.matrix);
-      report.notes.push(`Deska ${plate}: otočena o 90°, aby se vešla na podložku`);
+      report.notes.push(msg('notePlateRotated', { plate }));
     }
     if (place.inExcluded) {
-      report.warnings.push(`Deska ${plate}: objekty zasahují k vyloučené oblasti podložky – zkontroluj rozložení v QIDI Studiu.`);
+      report.warnings.push(msg('warnPlateExcluded', { plate }));
     }
     shifts.set(plate, { ...place.shift, rotation });
   }
@@ -433,10 +442,8 @@ function relocatePlates(files, src, project, report) {
   project.wipe_tower_y = towers.map((t) => String(t[1]));
 
   if (oldBed.w !== newBed.w || oldBed.d !== newBed.d) {
-    const plates = `${plateCount} ${plateCount === 1 ? 'deska' : plateCount < 5 ? 'desky' : 'desek'}`;
-    report.notes.push(moved
-      ? `Podložka ${oldBed.w}×${oldBed.d} → ${newBed.w}×${newBed.d} mm, přesunuto ${moved} z ${items.length} objektů (${plates})`
-      : `Podložka ${oldBed.w}×${oldBed.d} → ${newBed.w}×${newBed.d} mm, objekty se vejdou a zůstaly na místě (${plates})`);
+    const bed = { from: `${oldBed.w}×${oldBed.d}`, to: `${newBed.w}×${newBed.d}`, plates: plateCount };
+    report.notes.push(moved ? msg('noteBedMoved', { ...bed, moved, total: items.length }) : msg('noteBedKept', bed));
   }
 }
 
@@ -463,7 +470,7 @@ function cleanModelSettings(files, project, report) {
       return '';
     });
   files[path] = strToU8(xml);
-  if (dropped.size) report.warnings.push(`Nastavení u objektů, která QIDI Studio nezná (vynechána): ${[...dropped].join(', ')}`);
+  if (dropped.size) report.warnings.push(msg('warnDroppedObjectSettings', { keys: [...dropped].join(', ') }));
 }
 
 function rewriteModelMetadata(files, bundle) {
@@ -508,7 +515,7 @@ function dropSlicerArtifacts(files, report) {
     if (cleaned !== xml) files[name] = strToU8(cleaned);
   }
   const gcode = removed.filter((n) => n.endsWith('.gcode')).length;
-  if (gcode) report.notes.push(`Odstraněn G-code pro původní tiskárnu (${gcode} ${gcode === 1 ? 'deska' : 'desek'})`);
+  if (gcode) report.notes.push(msg('noteGcodeRemoved', { n: gcode }));
 }
 
 // ---------------------------------------------------------------------------
