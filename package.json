@@ -1,0 +1,19 @@
+{
+  "name": "qidi-3mf-extension",
+  "version": "1.0.0",
+  "description": "Chrome extension converting MakerWorld/Printables 3MF projects to QIDI Studio profiles",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "profiles": "node scripts/build-profiles.mjs",
+    "try": "node scripts/try-convert.mjs",
+    "preview": "node scripts/preview-server.mjs 5199",
+    "icons": "node scripts/make-icons.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "fflate": "^0.8.2"
+  }
+}

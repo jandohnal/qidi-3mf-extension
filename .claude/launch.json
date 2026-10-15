@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "popup-preview",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/preview-server.mjs", "5199"],
+      "port": 5199
+    }
+  ]
+}

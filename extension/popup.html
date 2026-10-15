@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <title>3MF → QIDI</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <img src="icons/icon32.png" alt="" width="24" height="24">
+    <div>
+      <h1>3MF → QIDI</h1>
+      <p class="sub" id="printer"></p>
+    </div>
+    <label class="switch" title="Převádět stahování z MakerWorld a Printables">
+      <input type="checkbox" id="enabled">
+      <span></span>
+    </label>
+  </header>
+
+  <section class="drop" id="drop">
+    <input type="file" id="file" accept=".3mf" multiple hidden>
+    <p><strong>Přetáhni sem 3MF</strong> nebo <button type="button" class="link" id="pick">vyber soubor</button></p>
+    <p class="hint">Stahování .3mf z MakerWorld a Printables se převádí automaticky.</p>
+  </section>
+
+  <section id="result" hidden></section>
+
+  <details open>
+    <summary>Profily</summary>
+    <label class="row">
+      <span>Proces</span>
+      <select id="process"></select>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="keep">
+      <span>Převzít nastavení autora (vrstvy, stěny, výplň, podpory, brim…)</span>
+    </label>
+    <label class="row">
+      <span>Přípona souboru</span>
+      <input type="text" id="suffix" placeholder="bez přípony">
+    </label>
+  </details>
+
+  <details>
+    <summary>Filamenty podle materiálu</summary>
+    <div id="materials"></div>
+  </details>
+
+  <details>
+    <summary>Poslední převody</summary>
+    <ol id="history"></ol>
+  </details>
+
+  <footer id="footer"></footer>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
